@@ -14,10 +14,20 @@ import java.util.stream.Collectors;
 
 public class Tools {
 
-    Variables v;
+    private JsonPath jp;
+    private JSONArray payload;
+    private Map scoreBoard;
+    private Map.Entry maxEntry;
+    private Map record;
+    private int index;
+    private int counter;
+    private List list;
+    private String filterKey;
+    private String targetKey;
+    private Object targetObject;
+    private JSONArray oppsArray;
 
     public Tools() throws IOException {
-        v = new Variables();
         parseFile("src/test/resources/downloads.txt");
     }
 
@@ -29,24 +39,24 @@ public class Tools {
     }
 
     public void resetIterator() {
-        v.setIndex(0);
-        v.setCounter(0);
-        v.setRecord(new HashMap());
-        v.setList(new ArrayList<>());
+        index = 0;
+        counter = 0;
+        record = new HashMap();
+        list = new ArrayList();
     }
 
     void parseFile(String path) throws IOException {
-        v.setPayload(new JSONArray());
+        payload = new JSONArray();
         BufferedReader br = new BufferedReader(new FileReader(path));
         String str;
 
         while ((str = br.readLine()) != null) {
             JSONObject jsonObject = new JSONObject(str);
-            v.getPayload().put(jsonObject);
+            payload.put(jsonObject);
         }
-        Assert.assertTrue("JSON payload is not valid.", isValid(v.getPayload().toString()));
+        Assert.assertTrue("JSON payload is not valid.", isValid(payload.toString()));
 
-        v.setJp(new JsonPath(v.getPayload().toString()));
+        jp = (new JsonPath(payload.toString()));
     }
 
     boolean isValid(String json) {
@@ -76,57 +86,61 @@ public class Tools {
             case "adBreakIndex" -> {
                 return "opportunities[%1$s].positionUrlSegments[\"aw_0_ais.adBreakIndex\"]".formatted(index);
             }
+            case "originalEventTime" -> {
+                return "opportunities[%1$s].originalEventTime".formatted(index);
+            }
 
             default -> throw new IllegalStateException("Unexpected value: " + targetObject);
         }
     }
 
     Object getJsonObjectFromPath(String path) {
-        return v.setTargetObject(v.getJp().getJsonObject(path));
+        return targetObject = jp.getJsonObject(path);
     }
 
     void buildRecord() {
-        if (!v.getRecord().containsKey(v.getTargetKey())) {
-            v.setCounter(1);
-            v.getRecord().put(v.getTargetKey(), v.getCounter());
+        if (!record.containsKey(targetKey)) {
+            counter = 1;
+            record.put(targetKey, counter);
         } else {
-            v.setCounter((int) v.getRecord().get(v.getTargetKey()));
-            v.getRecord().replace(v.getTargetKey(), v.getCounter(), v.getCounter() + 1);
+            counter = (int) record.get(targetKey);
+            record.replace(targetKey, counter, counter + 1);
         }
     }
 
     void mapIterator(Map<String, Integer> map) {
-        v.setMaxEntry(null);
-        v.setScoreBoard(new HashMap());
+        maxEntry = null;
+        scoreBoard = new HashMap();
         map.entrySet().forEach(entry -> {
-            v.getScoreBoard().put(entry.getKey(), entry.getValue());
-            if (v.getMaxEntry() == null || entry.getValue().compareTo((Integer) v.getMaxEntry().getValue()) > 0) {
-                v.setMaxEntry(entry);
+            scoreBoard.put(entry.getKey(), entry.getValue());
+
+            if (maxEntry == null || entry.getValue().compareTo((Integer) maxEntry.getValue()) > 0) {
+                maxEntry = entry;
             }
         });
 
-        v.setScoreBoard(sortMapByValueDescending(v.getScoreBoard()));
+        scoreBoard = sortMapByValueDescending(scoreBoard);
     }
 
     void payloadIterator(String targetObject) {
-        v.getPayload().forEach(o -> {
-            v.setTargetKey(getJsonObjectFromPath(jsonPathFactory(targetObject, v.getIndex())).toString());
-            if (!v.getList().contains(v.getTargetKey())) v.getList().add(v.getTargetKey());
+        payload.forEach(o -> {
+            targetKey = getJsonObjectFromPath(jsonPathFactory(targetObject, index)).toString();
+            if(!list.contains(targetKey)) list.add(targetKey);
             buildRecord();
-            v.setIndex(v.getIndex() + 1);
+            index++;
         });
     }
 
     void payloadIterator(String targetObject, String filterCriteria, String filterValue) {
-        v.getPayload().forEach(o -> {
-            v.setFilterKey(getJsonObjectFromPath(jsonPathFactory(filterCriteria, v.getIndex())).toString());
-            v.setTargetKey(getJsonObjectFromPath(jsonPathFactory(targetObject, v.getIndex())).toString());
+        payload.forEach(o -> {
+            filterKey = getJsonObjectFromPath(jsonPathFactory(filterCriteria, index)).toString();
+            targetKey = getJsonObjectFromPath(jsonPathFactory(targetObject, index)).toString();
 
-            if (!v.getList().contains(v.getFilterKey())) v.getList().add(v.getFilterKey());
+            if(!list.contains(filterKey)) list.add(filterKey);
 
-            if (v.getFilterKey().equalsIgnoreCase(filterValue) || v.getFilterKey().contains(filterValue)) buildRecord();
+            if(filterKey.equalsIgnoreCase(filterValue) || filterKey.contains(filterValue.toLowerCase())) buildRecord();
 
-            v.setIndex(v.getIndex() + 1);
+            index++;
         });
     }
 
@@ -139,17 +153,18 @@ public class Tools {
                 """);
 
         payloadIterator("showId", "city", selectedCity);
+        mapIterator(record);
 
         Assert.assertTrue("""
                 Selected city name "%1$s" is missing from the available data.
                 Please select a city from the following list:
                 %2$s
-                """.formatted(selectedCity, v.getList()), v.getList().contains(selectedCity.toLowerCase()));
+                """.formatted(selectedCity, list), list.contains(selectedCity.toLowerCase()));
 
-        mapIterator(v.getRecord());
 
-        Assert.assertEquals("Who Trolled Amber", v.getMaxEntry().getKey().toString());
-        Assert.assertEquals(24, v.getMaxEntry().getValue());
+
+        Assert.assertEquals("Who Trolled Amber", maxEntry.getKey().toString());
+        Assert.assertEquals(24, maxEntry.getValue());
 
         System.out.println("""
                 Solution:    
@@ -158,9 +173,9 @@ public class Tools {
                 """
                 .formatted(
                         selectedCity,
-                        v.getMaxEntry().getKey(),
-                        v.getMaxEntry().getValue(),
-                        v.getScoreBoard().toString()
+                        maxEntry.getKey(),
+                        maxEntry.getValue(),
+                        scoreBoard.toString()
                                 .replace("{", "")
                                 .replace("}", "")
                                 .replace(", ", "\n")
@@ -178,10 +193,10 @@ public class Tools {
 
         payloadIterator("deviceType");
 
-        mapIterator(v.getRecord());
+        mapIterator(record);
 
-        Assert.assertEquals("mobiles & tablets", v.getMaxEntry().getKey().toString());
-        Assert.assertEquals(60, v.getMaxEntry().getValue());
+        Assert.assertEquals("mobiles & tablets", maxEntry.getKey().toString());
+        Assert.assertEquals(60, maxEntry.getValue());
 
         System.out.println("""
                 Solution:
@@ -189,9 +204,9 @@ public class Tools {
                     Number of downloads is: %2$s
                 """
                 .formatted(
-                        v.getMaxEntry().getKey(),
-                        v.getMaxEntry().getValue(),
-                        v.getScoreBoard().toString()
+                        maxEntry.getKey(),
+                        maxEntry.getValue(),
+                        scoreBoard.toString()
                                 .replace("{", "")
                                 .replace("}", "")
                                 .replace(", ", "\n")
@@ -208,40 +223,51 @@ public class Tools {
                     numarul de oportunitati care contin in lista aw_0_ais.adBreakIndex valoarea preroll.
                 """);
 
-        v.getPayload().forEach(o -> {
-            v.setFilterKey(getJsonObjectFromPath(jsonPathFactory("adBreakIndex", v.getIndex())).toString());
-            v.setTargetKey(getJsonObjectFromPath(jsonPathFactory("showId", v.getIndex())).toString());
-            v.setOppsArray(new JSONArray(v.getFilterKey()));
+        payload.forEach(o -> {
+            filterKey = getJsonObjectFromPath(jsonPathFactory("adBreakIndex", index)).toString();
+            targetKey = getJsonObjectFromPath(jsonPathFactory("showId", index)).toString();
+            oppsArray = new JSONArray(filterKey);
 
-            if (!v.getRecord().containsKey(v.getTargetKey())) v.getRecord().put(v.getTargetKey(), 0);
+            if (!record.containsKey(targetKey)) record.put(targetKey, 0);
 
-            v.getOppsArray().forEach(p -> {
+            oppsArray.forEach(p -> {
                 if (p.toString().contains(oppType) || p.toString().equalsIgnoreCase(oppType)) {
-                    v.setCounter((int) v.getRecord().get(v.getTargetKey()));
-                    v.getRecord().replace(v.getTargetKey(), v.getCounter(), v.getCounter() + 1);
+                    counter = (int) record.get(targetKey);
+                    record.replace(targetKey, counter, counter + 1);
                 }
             });
-
-            v.setIndex(v.getIndex() + 1);
+            index++;
         });
 
-        mapIterator(v.getRecord());
+        mapIterator(record);
 
-        v.getList().add(0, "Stuff You Should Know = 40");
-        v.getList().add(1, "Who Trolled Amber = 40");
-        v.getList().add(2, "Crime Junkie = 30");
-        v.getList().add(3, "The Joe Rogan Experience = 10");
+        list.add(0, "Stuff You Should Know = 40");
+        list.add(1, "Who Trolled Amber = 40");
+        list.add(2, "Crime Junkie = 30");
+        list.add(3, "The Joe Rogan Experience = 10");
 
-        v.setIndex(0);
-        v.getScoreBoard().forEach((k, v) -> {
-            Assert.assertEquals(this.v.getList().get(this.v.getIndex()), "%1$s = %2$s".formatted(k, v));
-            this.v.setIndex(this.v.getIndex() + 1);
+        index = 0;
+        scoreBoard.forEach((k, v) -> {
+            Assert.assertEquals(list.get(index), "%1$s = %2$s".formatted(k, v));
+            index++;
         });
 
         System.out.println("Solution:");
-        v.getScoreBoard().forEach((key, value) -> {
+        scoreBoard.forEach((key, value) -> {
             System.out.println("    Show Id: %1$s, Preroll Opportunity Number: %2$s".formatted(key, value));
         });
         System.out.println("");
     }
+
+    public void getOppByEventTime() {
+        System.out.println("""
+                4.) Cerinta bonus: Folosind event time-ul (originalEventTime) la care au aparut oportunitatile
+                    de a insera reclame calculeaza si printeaza doar emisiunile de podcast difuzate saptamanal
+                    precum si ziua si ora la care aceste emisiuni sunt difuzate.
+                """);
+
+        System.out.println(record);
+
+    }
+
 }

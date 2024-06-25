@@ -33,5 +33,10 @@ public class TestRunners {
     public void test3() {
         t.getPreRollOpportunities("preroll");
     }
+
+    @Test
+    public void test4(){
+        t.getOppByEventTime();
+    }
 }
 
