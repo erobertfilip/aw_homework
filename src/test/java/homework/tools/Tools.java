@@ -9,26 +9,35 @@ import org.junit.Assert;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.lang.reflect.Array;
+import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class Tools {
 
-    private JsonPath jp;
-    private JSONArray payload;
-    private Map scoreBoard;
-    private Map.Entry maxEntry;
-    private Map record;
-    private int index;
-    private int counter;
-    private List list;
-    private String filterKey;
-    private String targetKey;
-    private Object targetObject;
-    private JSONArray oppsArray;
+    SimpleDateFormat jdf;
+    JsonPath jp;
+    JSONArray payload;
+    Map scoreBoard;
+    Map.Entry maxEntry;
+    Map record;
+    int index;
+    int counter;
+    List list;
+    List eventTimes;
+    String filterKey;
+    String targetKey;
+    Object targetObject;
+    JSONArray oppsArray;
+    Date date;
+    String formattedDate;
 
     public Tools() throws IOException {
         parseFile("src/test/resources/downloads.txt");
+        jdf = new SimpleDateFormat("EEE HH:mm");
+        jdf.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
     //    Source: https://www.baeldung.com/java-sort-map-descending
@@ -125,7 +134,7 @@ public class Tools {
     void payloadIterator(String targetObject) {
         payload.forEach(o -> {
             targetKey = getJsonObjectFromPath(jsonPathFactory(targetObject, index)).toString();
-            if(!list.contains(targetKey)) list.add(targetKey);
+            if (!list.contains(targetKey)) list.add(targetKey);
             buildRecord();
             index++;
         });
@@ -136,12 +145,22 @@ public class Tools {
             filterKey = getJsonObjectFromPath(jsonPathFactory(filterCriteria, index)).toString();
             targetKey = getJsonObjectFromPath(jsonPathFactory(targetObject, index)).toString();
 
-            if(!list.contains(filterKey)) list.add(filterKey);
+            if (!list.contains(filterKey)) list.add(filterKey);
 
-            if(filterKey.equalsIgnoreCase(filterValue) || filterKey.contains(filterValue.toLowerCase())) buildRecord();
+            if (filterKey.equalsIgnoreCase(filterValue) || filterKey.contains(filterValue.toLowerCase())) buildRecord();
 
             index++;
         });
+    }
+
+    //    Source: https://www.w3resource.com/java-exercises/datetime/java-datetime-exercise-36.php
+    String unixToDateConverter(Long unix) {
+        //convert seconds to milliseconds
+        date = new Date(unix);
+        // format of the date
+        String java_date = jdf.format(date);
+
+        return java_date;
     }
 
 
@@ -162,14 +181,13 @@ public class Tools {
                 """.formatted(selectedCity, list), list.contains(selectedCity.toLowerCase()));
 
 
-
         Assert.assertEquals("Who Trolled Amber", maxEntry.getKey().toString());
         Assert.assertEquals(24, maxEntry.getValue());
 
         System.out.println("""
-                Solution:    
+                Solution:    \033[3m
                     Most popular show in %1$s is: %2$s
-                    Number of downloads is: %3$s
+                    Number of downloads is: %3$s \033[0m
                 """
                 .formatted(
                         selectedCity,
@@ -199,9 +217,9 @@ public class Tools {
         Assert.assertEquals(60, maxEntry.getValue());
 
         System.out.println("""
-                Solution:
+                Solution:\033[3m
                     Most popular device is: %1$s
-                    Number of downloads is: %2$s
+                    Number of downloads is: %2$s\033[0m
                 """
                 .formatted(
                         maxEntry.getKey(),
@@ -254,7 +272,7 @@ public class Tools {
 
         System.out.println("Solution:");
         scoreBoard.forEach((key, value) -> {
-            System.out.println("    Show Id: %1$s, Preroll Opportunity Number: %2$s".formatted(key, value));
+            System.out.println("    \033[3mShow Id: %1$s, Preroll Opportunity Number: %2$s\033[0m".formatted(key, value));
         });
         System.out.println("");
     }
@@ -265,9 +283,56 @@ public class Tools {
                     de a insera reclame calculeaza si printeaza doar emisiunile de podcast difuzate saptamanal
                     precum si ziua si ora la care aceste emisiuni sunt difuzate.
                 """);
+        record = new HashMap();
 
-        System.out.println(record);
+        payload.forEach(o -> {
+            filterKey = getJsonObjectFromPath(jsonPathFactory("originalEventTime", index)).toString();
+            targetKey = getJsonObjectFromPath(jsonPathFactory("showId", index)).toString();
+            oppsArray = new JSONArray(filterKey);
 
+            if (!record.containsKey(targetKey)) eventTimes = new ArrayList<>();
+
+            oppsArray.forEach(e -> {
+                if (record.containsKey(targetKey) && !record.get(targetKey).toString().contains(e.toString()))
+                    eventTimes.add(e);
+            });
+
+            record.put(targetKey, eventTimes);
+            index++;
+        });
+
+        Map bonusMap = new HashMap();
+
+        record.forEach((k, v) -> {
+            Set set = new HashSet();
+            oppsArray = new JSONArray(v.toString());
+            oppsArray.forEach(e -> {
+                formattedDate = unixToDateConverter((Long) e);
+                set.add(formattedDate);
+            });
+            if (set.size() == 1) bonusMap.put(k, formattedDate);
+            else bonusMap.remove(k, formattedDate);
+        });
+
+        list.add("Crime Junkie - Wed 22:00");
+        list.add("Who Trolled Amber - Mon 20:00");
+
+        index = 0;
+        bonusMap.forEach((k, v) -> {
+            Assert.assertEquals(list.get(index), "%1$s - %2$s".formatted(k, v));
+            index++;
+        });
+
+        System.out.println("""
+                Solution: \033[3m
+                    Weekly shows are:
+                """);
+
+        System.out.println(bonusMap.toString()
+                .replace("{", "    ")
+                .replace("}", "\033[0m\n")
+                .replace(", ","\n    ")
+                .replace("=", " - ")
+        );
     }
-
 }
