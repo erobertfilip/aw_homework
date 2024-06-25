@@ -331,7 +331,7 @@ public class Tools {
         System.out.println(bonusMap.toString()
                 .replace("{", "    ")
                 .replace("}", "\033[0m\n")
-                .replace(", ","\n    ")
+                .replace(", ", "\n    ")
                 .replace("=", " - ")
         );
     }
