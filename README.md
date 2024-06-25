@@ -1,2 +1,3 @@
 # homework
-run with command mvn clean test
+run with command:   
+_**./mvnw clean install**_
