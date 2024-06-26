@@ -34,19 +34,30 @@ public class Tools {
     Date date;
     String formattedDate;
 
+    /**
+     * Class constructor.
+     * @throws IOException
+     */
     public Tools() throws IOException {
         parseFile("src/test/resources/downloads.txt");
         jdf = new SimpleDateFormat("EEE HH:mm");
         jdf.setTimeZone(TimeZone.getTimeZone("UTC"));
     }
 
-    //    Source: https://www.baeldung.com/java-sort-map-descending
+    /**
+     * Sorts the provided map descending, by value.
+     * @author <a href="https://www.baeldung.com/java-sort-map-descending">baeldung.com</a>
+     * @param map
+     */
     public static <K, V extends Comparable<? super V>> Map<K, V> sortMapByValueDescending(Map<K, V> map) {
         return map.entrySet().stream()
                 .sorted(Map.Entry.<K, V>comparingByValue().reversed())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
     }
 
+    /**
+     * Resets {@link Tools#index}, {@link Tools#counter} and other variables used in iterators.
+     */
     public void resetIterator() {
         index = 0;
         counter = 0;
@@ -54,6 +65,11 @@ public class Tools {
         list = new ArrayList();
     }
 
+    /**
+     * Takes a file path as input, parses the data stored in it & converts it into a usable JSON payload.
+     * @param path
+     * @throws IOException
+     */
     void parseFile(String path) throws IOException {
         payload = new JSONArray();
         BufferedReader br = new BufferedReader(new FileReader(path));
@@ -68,6 +84,11 @@ public class Tools {
         jp = (new JsonPath(payload.toString()));
     }
 
+    /**
+     * Validates if the provided string is valid JSON data.
+     * @param json
+     * @return boolean
+     */
     boolean isValid(String json) {
         try {
             new JSONObject(json);
@@ -81,6 +102,12 @@ public class Tools {
         return true;
     }
 
+    /**
+     * Helps with code readability, by provided pre-formatted JSON paths as strings.
+     * @param targetObject
+     * @param index
+     * @return String
+     */
     String jsonPathFactory(String targetObject, int index) {
         switch (targetObject) {
             case "city" -> {
@@ -103,10 +130,20 @@ public class Tools {
         }
     }
 
+    /**
+     * Accesses the specified JSON path and returns the data as a Java object.
+     * Returns the object stored at the specified JSON path.
+     * @param path
+     * @return Object
+     */
     Object getJsonObjectFromPath(String path) {
         return targetObject = jp.getJsonObject(path);
     }
 
+    /**
+     * Populates {@link Tools#record} with unique keys from the target JSON object.
+     * The associated values represent the number of occurences for the key.
+     */
     void buildRecord() {
         if (!record.containsKey(targetKey)) {
             counter = 1;
@@ -117,6 +154,11 @@ public class Tools {
         }
     }
 
+    /**
+     * Iterates through the provided map, extracts the entry with the maximum value and stores it in {@link Tools#maxEntry}.
+     * It also puts together a {@link Tools#scoreBoard}, sorted descending by value.
+     * @param map
+     */
     void mapIterator(Map<String, Integer> map) {
         maxEntry = null;
         scoreBoard = new HashMap();
@@ -131,6 +173,12 @@ public class Tools {
         scoreBoard = sortMapByValueDescending(scoreBoard);
     }
 
+    /**
+     * Filters through the JSON payload with {@link Tools#targetKey} as criteria.
+     * Unique values from this iteration are added to {@link Tools#list}
+     * and {@link Tools#buildRecord()} is called with each iteration.
+     * @param targetObject
+     */
     void payloadIterator(String targetObject) {
         payload.forEach(o -> {
             targetKey = getJsonObjectFromPath(jsonPathFactory(targetObject, index)).toString();
@@ -140,6 +188,12 @@ public class Tools {
         });
     }
 
+    /**
+     * As alternative to {@link Tools#payloadIterator(String)}, this overloaded method uses more filtering criteria.
+     * @param targetObject
+     * @param filterCriteria
+     * @param filterValue
+     */
     void payloadIterator(String targetObject, String filterCriteria, String filterValue) {
         payload.forEach(o -> {
             filterKey = getJsonObjectFromPath(jsonPathFactory(filterCriteria, index)).toString();
@@ -153,7 +207,12 @@ public class Tools {
         });
     }
 
-    //    Source: https://www.w3resource.com/java-exercises/datetime/java-datetime-exercise-36.php
+    /**
+     * Takes UNIX timestamps as input and returns a formatted date.
+     * @param unix
+     * @return String
+     * @author <a href=https://www.w3resource.com/java-exercises/datetime/java-datetime-exercise-36.php>w3resource.com</a>
+     */
     String unixToDateConverter(Long unix) {
         //convert seconds to milliseconds
         date = new Date(unix);
@@ -163,7 +222,10 @@ public class Tools {
         return java_date;
     }
 
-
+    /**
+     * Steps to solve the first test.
+     * @param selectedCity
+     */
     public void getTopDldShowPerCity(String selectedCity) {
         System.out.println("""
                 1.) Calculeaza si printeaza care este emisiunea de podcast (aceasta este identificata prin
@@ -202,6 +264,9 @@ public class Tools {
         );
     }
 
+    /**
+     * Steps to solve the second test.
+     */
     public void getMostUsedDeviceType() {
         System.out.println("""
                 2.) Calculeaza si printeaza care este device-ul (aceasta este identificat prin deviceType; eg.
@@ -233,6 +298,10 @@ public class Tools {
         );
     }
 
+    /**
+     * Steps to solve the third test.
+     * @param oppType
+     */
     public void getPreRollOpportunities(String oppType) {
         System.out.println("""
                 3.) Calculeaza si printeaza cate oportunitati de a insera o reclama in preroll au existat pentru
@@ -277,6 +346,9 @@ public class Tools {
         System.out.println("");
     }
 
+    /**
+     * Steps to solve the fourth (bonus) test.
+     */
     public void getOppByEventTime() {
         System.out.println("""
                 4.) Cerinta bonus: Folosind event time-ul (originalEventTime) la care au aparut oportunitatile
